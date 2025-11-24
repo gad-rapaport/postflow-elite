@@ -57,11 +57,11 @@ export default function PostFlow() {
     }
 
     // Check for API key
-    const apiKey = localStorage.getItem("openai_api_key");
+    const apiKey = localStorage.getItem("google_api_key");
     if (!apiKey) {
       toast({
         title: "API Key Required",
-        description: "Please add your OpenAI API key in Settings first.",
+        description: "Please add your Google API key in Settings first.",
         variant: "destructive",
       });
       setSettingsOpen(true);
@@ -76,34 +76,36 @@ export default function PostFlow() {
         ? "LinkedIn (professional, educational, with emojis and formatting for engagement)"
         : "Twitter (concise, punchy, thread format with emojis)";
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: `You are a viral social media content creator. Create engaging, authentic posts optimized for ${platformContext}. 
-              
+      const prompt = `You are a viral social media content creator. Create an engaging, authentic post optimized for ${platformContext}.
+
 Format your response as JSON with two fields:
 - "title": A compelling headline (max 100 chars)
 - "content": The full post body with proper formatting, emojis, and structure for the platform
 
-Make it feel human, relatable, and shareable.`
-            },
-            {
-              role: "user",
-              content: `Create a viral ${platform} post based on this idea: ${rawIdea}`
+Create a viral ${platform} post based on this idea: ${rawIdea}
+
+Make it feel human, relatable, and shareable.`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.9,
+              maxOutputTokens: 800,
             }
-          ],
-          temperature: 0.9,
-          max_tokens: 800,
-        }),
-      });
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -111,11 +113,17 @@ Make it feel human, relatable, and shareable.`
       }
 
       const data = await response.json();
-      const generatedText = data.choices[0].message.content;
+      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       
-      // Parse the JSON response
+      if (!generatedText) {
+        throw new Error("No response generated");
+      }
+
+      // Try to parse JSON from the response
       try {
-        const parsed = JSON.parse(generatedText);
+        // Clean markdown code blocks if present
+        const cleanText = generatedText.replace(/```json\n?|\n?```/g, "").trim();
+        const parsed = JSON.parse(cleanText);
         setGeneratedPost({
           title: parsed.title || "Generated Post",
           content: parsed.content || generatedText,

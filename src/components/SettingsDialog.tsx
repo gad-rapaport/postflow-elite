@@ -18,7 +18,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   useEffect(() => {
     // Load API key from localStorage when dialog opens
     if (open) {
-      const savedKey = localStorage.getItem("openai_api_key");
+      const savedKey = localStorage.getItem("google_api_key");
       if (savedKey) {
         setApiKey(savedKey);
       }
@@ -29,23 +29,23 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     if (!apiKey.trim()) {
       toast({
         title: "API Key Required",
-        description: "Please enter your OpenAI API key.",
+        description: "Please enter your Google API key.",
         variant: "destructive",
       });
       return;
     }
 
-    // Basic validation - OpenAI keys start with "sk-"
-    if (!apiKey.startsWith("sk-")) {
+    // Basic validation - Google keys start with "AIza"
+    if (!apiKey.startsWith("AIza")) {
       toast({
         title: "Invalid API Key",
-        description: "OpenAI API keys typically start with 'sk-'.",
+        description: "Google API keys typically start with 'AIza'.",
         variant: "destructive",
       });
       return;
     }
 
-    localStorage.setItem("openai_api_key", apiKey);
+    localStorage.setItem("google_api_key", apiKey);
     toast({
       title: "Settings Saved! ✓",
       description: "Your API key has been saved securely in your browser.",
@@ -54,7 +54,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   };
 
   const handleClear = () => {
-    localStorage.removeItem("openai_api_key");
+    localStorage.removeItem("google_api_key");
     setApiKey("");
     toast({
       title: "API Key Cleared",
@@ -68,20 +68,20 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
         <DialogHeader>
           <DialogTitle className="text-2xl gradient-text">Settings</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Configure your OpenAI API key to enable post generation.
+            Configure your Google API key to enable post generation.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="api-key" className="text-sm font-medium">
-              OpenAI API Key
+              Google API Key
             </Label>
             <div className="relative">
               <Input
                 id="api-key"
                 type={showKey ? "text" : "password"}
-                placeholder="sk-..."
+                placeholder="AIza..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="glass border-border/50 pr-10"
@@ -99,12 +99,12 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               <br />
               Get your key from{" "}
               <a
-                href="https://platform.openai.com/api-keys"
+                href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
-                OpenAI Dashboard
+                Google AI Studio
               </a>
             </p>
           </div>
