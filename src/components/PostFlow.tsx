@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Sparkles, Loader2 } from "lucide-react";
+import { Copy, Sparkles, Loader2, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import SettingsDialog from "@/components/SettingsDialog";
 
 const DEMO_POSTS = {
   linkedin: {
@@ -43,6 +44,7 @@ export default function PostFlow() {
   const [platform, setPlatform] = useState<"linkedin" | "twitter">("linkedin");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<{ title: string; content: string } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleGenerate = async () => {
     if (!rawIdea.trim()) {
@@ -54,18 +56,95 @@ export default function PostFlow() {
       return;
     }
 
+    // Check for API key
+    const apiKey = localStorage.getItem("openai_api_key");
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please add your OpenAI API key in Settings first.",
+        variant: "destructive",
+      });
+      setSettingsOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
     setGeneratedPost(null);
 
-    // Simulate AI generation with 2 second delay
-    setTimeout(() => {
-      setGeneratedPost(DEMO_POSTS[platform]);
-      setIsGenerating(false);
-      toast({
-        title: "Post Generated! 🎉",
-        description: "Your viral post is ready to copy.",
+    try {
+      const platformContext = platform === "linkedin" 
+        ? "LinkedIn (professional, educational, with emojis and formatting for engagement)"
+        : "Twitter (concise, punchy, thread format with emojis)";
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You are a viral social media content creator. Create engaging, authentic posts optimized for ${platformContext}. 
+              
+Format your response as JSON with two fields:
+- "title": A compelling headline (max 100 chars)
+- "content": The full post body with proper formatting, emojis, and structure for the platform
+
+Make it feel human, relatable, and shareable.`
+            },
+            {
+              role: "user",
+              content: `Create a viral ${platform} post based on this idea: ${rawIdea}`
+            }
+          ],
+          temperature: 0.9,
+          max_tokens: 800,
+        }),
       });
-    }, 2000);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const generatedText = data.choices[0].message.content;
+      
+      // Parse the JSON response
+      try {
+        const parsed = JSON.parse(generatedText);
+        setGeneratedPost({
+          title: parsed.title || "Generated Post",
+          content: parsed.content || generatedText,
+        });
+        toast({
+          title: "Post Generated! 🎉",
+          description: "Your viral post is ready to copy.",
+        });
+      } catch {
+        // Fallback if AI doesn't return valid JSON
+        setGeneratedPost({
+          title: "Generated Post",
+          content: generatedText,
+        });
+        toast({
+          title: "Post Generated! 🎉",
+          description: "Your viral post is ready to copy.",
+        });
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate post. Please check your API key and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCopy = () => {
@@ -92,11 +171,24 @@ export default function PostFlow() {
             <Sparkles className="w-6 h-6 text-primary animate-glow" />
             <h1 className="text-2xl font-bold gradient-text">PostFlow</h1>
           </div>
-          <p className="text-sm text-muted-foreground hidden md:block">
-            Create viral posts in seconds
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-muted-foreground hidden md:block">
+              Create viral posts in seconds
+            </p>
+            <Button
+              onClick={() => setSettingsOpen(true)}
+              variant="glass"
+              size="icon"
+              className="shrink-0"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
+
+      {/* Settings Dialog */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       {/* Main Content */}
       <main className="relative z-10 container mx-auto px-6 py-12">
